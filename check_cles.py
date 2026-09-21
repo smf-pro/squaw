@@ -6,6 +6,7 @@ Outil pour vos clés ElevenLabs (toutes du MÊME compte), listées dans cles.txt
     python check_cles.py --best      affiche en plus la première clé utilisable
     python check_cles.py --chiffrer  met vos clés dans index.html, CHIFFRÉES par un mot de passe
     python check_cles.py --integrer  crée squawk-perso.html avec les clés EN CLAIR (usage local)
+    python check_cles.py --public    écrit la clé EN CLAIR dans index.html (site public, à vos risques)
 
 --chiffrer (recommandé pour le site en ligne)
     Les clés sont chiffrées (AES-256-GCM, clé dérivée de votre mot de passe par PBKDF2).
@@ -18,8 +19,13 @@ Outil pour vos clés ElevenLabs (toutes du MÊME compte), listées dans cles.txt
 --integrer
     Écrit les clés en clair dans squawk-perso.html. Ne l'envoyez JAMAIS sur GitHub.
 
+--public
+    Écrit les clés en clair dans index.html : toute personne qui ouvre le site utilisera votre clé
+    (et peut la lire). À réserver à une clé DÉDIÉE, restreinte à « Synthèse vocale » + « Voix : lecture »,
+    avec une limite de crédits fixée dans ElevenLabs.
+
 --forcer
-    Avec --chiffrer ou --integrer : n'interroge pas ElevenLabs et intègre toutes les clés.
+    Avec --chiffrer, --integrer ou --public : n'interroge pas ElevenLabs et intègre toutes les clés.
 """
 import argparse
 import base64
@@ -36,7 +42,7 @@ from datetime import datetime
 from pathlib import Path
 
 API = "https://api.elevenlabs.io/v1/user/subscription"
-MARQUEUR_CLAIR = "const PRESET = { eleven: [] };"
+PRESET_RE = re.compile(r"^const PRESET = \{ eleven: \[.*\] \};$", re.M)
 MARQUEUR_COFFRE = re.compile(r"^const VAULT = .*;$", re.M)
 ITERATIONS = 600_000
 MDP_MIN = 12
@@ -90,16 +96,18 @@ def date_fr(ts) -> str:
         return "?"
 
 
-def integrer(cles: list[str], entree: Path, sortie: Path) -> None:
-    if sortie.name.lower() == "index.html" or sortie.resolve() == entree.resolve():
-        sys.exit("Refusé : la version avec clés EN CLAIR ne doit pas écraser index.html (la version publique).")
+def integrer(cles: list[str], entree: Path, sortie: Path, public: bool = False) -> None:
+    if not public and (sortie.name.lower() == "index.html" or sortie.resolve() == entree.resolve()):
+        sys.exit("Refusé : la version avec clés EN CLAIR ne doit pas écraser index.html (la version publique).\n"
+                 "Si c'est vraiment ce que vous voulez, utilisez --public.")
     if not entree.exists():
         sys.exit(f"Fichier introuvable : {entree}")
     src = entree.read_text(encoding="utf-8")
-    if MARQUEUR_CLAIR not in src:
+    if not PRESET_RE.search(src):
         sys.exit(f"{entree} ne contient pas l'emplacement prévu pour les clés. Utilisez la dernière version de la page.")
     liste = json.dumps(cles).replace("</", "<\\/")
-    sortie.write_text(src.replace(MARQUEUR_CLAIR, f"const PRESET = {{ eleven: {liste} }};"), encoding="utf-8")
+    nouveau = PRESET_RE.sub(lambda m: f"const PRESET = {{ eleven: {liste} }};", src, count=1)
+    sortie.write_text(nouveau, encoding="utf-8")
 
 
 def demander_mot_de_passe() -> str:
@@ -141,14 +149,15 @@ def main() -> int:
     p.add_argument("--best", action="store_true", help="affiche la première clé utilisable")
     p.add_argument("--chiffrer", action="store_true", help="chiffre les clés dans index.html (publiable)")
     p.add_argument("--integrer", action="store_true", help="crée squawk-perso.html avec les clés en clair (local)")
+    p.add_argument("--public", action="store_true", help="écrit la clé EN CLAIR dans index.html (site public)")
     p.add_argument("--forcer", action="store_true", help="intègre toutes les clés sans les vérifier")
     p.add_argument("--entree", default="index.html", help="page de départ (défaut : index.html)")
     p.add_argument("--sortie", default=None,
                    help="page créée (défaut : index.html pour --chiffrer, squawk-perso.html pour --integrer)")
     args = p.parse_args()
 
-    if args.chiffrer and args.integrer:
-        sys.exit("Choisissez --chiffrer OU --integrer, pas les deux.")
+    if sum([args.chiffrer, args.integrer, args.public]) > 1:
+        sys.exit("Choisissez une seule option parmi --chiffrer, --integrer, --public.")
 
     cles = lire_cles(Path(args.fichier))
     if not cles:
@@ -162,13 +171,21 @@ def main() -> int:
             print(f"\n{len(liste)} clé(s) chiffrée(s) dans {sortie}.")
             print("Ce fichier ne contient aucune clé lisible : vous pouvez le mettre sur GitHub.")
             print("Ne publiez jamais le mot de passe, ni cles.txt.")
+        elif args.public:
+            print("\nATTENTION : la clé va être écrite EN CLAIR dans " + str(entree) + ".")
+            print("Une fois le fichier sur GitHub, tout le monde pourra la lire et l'utiliser,")
+            print("et GitHub / ElevenLabs peuvent la détecter et la désactiver automatiquement.")
+            if input("Tapez OUI pour confirmer : ").strip() != "OUI":
+                sys.exit("Annulé, rien n'a été modifié.")
+            integrer(liste, entree, Path(args.sortie) if args.sortie else entree, public=True)
+            print(f"\n{len(liste)} clé(s) écrite(s) EN CLAIR dans {args.sortie or entree}.")
         else:
             sortie = Path(args.sortie or "squawk-perso.html")
             integrer(liste, entree, sortie)
             print(f"\n{len(liste)} clé(s) intégrée(s) EN CLAIR dans {sortie}.")
             print("Ne l'envoyez JAMAIS sur GitHub : il contient vos clés lisibles.")
 
-    if (args.chiffrer or args.integrer) and args.forcer:
+    if (args.chiffrer or args.integrer or args.public) and args.forcer:
         ecrire(cles)
         return 0
 
@@ -199,7 +216,7 @@ def main() -> int:
             print(f"\nClé à utiliser : {utilisables[0]}")
         else:
             print("\nAucune clé utilisable (invalide ou quota du mois épuisé).")
-    if args.chiffrer or args.integrer:
+    if args.chiffrer or args.integrer or args.public:
         if not utilisables:
             print("\nAucune clé utilisable à intégrer. Si vos clés fonctionnent mais n'ont pas la "
                   "permission « Utilisateur », relancez avec --forcer.")
