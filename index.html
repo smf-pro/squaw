@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squawk – les news lues à voix haute, en direct</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light dark;
+  --paper:#e8ecef;
+  --card:#f6f8f9;
+  --ink:#10233b;
+  --ink-soft:#4b5d72;
+  --rule:#cbd3da;
+  --blue:#1f4fd8;
+  --blue-ink:#ffffff;
+  --lamp:#e5322d;
+  --lamp-off:#c9a5a3;
+  --ok:#1e8a4c;
+  --bad:#b3261e;
+  --font:"Archivo","Helvetica Neue",Arial,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#0c1522;
+    --card:#132033;
+    --ink:#e9eef5;
+    --ink-soft:#93a4b8;
+    --rule:#243550;
+    --blue:#6f95ff;
+    --blue-ink:#0c1522;
+    --lamp:#ff4a43;
+    --lamp-off:#5b3a3f;
+    --ok:#4cd68a;
+    --bad:#ff8a80;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font);
+  font-size:16px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  min-height:100vh;
+}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+/* ---------- en-tête ---------- */
+.top{
+  display:flex;align-items:center;gap:16px;
+  padding:14px clamp(16px,4vw,40px);
+  border-bottom:1px solid var(--rule);
+}
+.brand{font-size:1.5rem;font-weight:800;font-stretch:80%;letter-spacing:-.01em}
+.status{flex:1;color:var(--ink-soft);font-size:.95rem}
+.clock{font-size:1.5rem;font-weight:700;font-stretch:80%}
+
+/* ---------- mise en page ---------- */
+.wrap{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 320px;
+  gap:0;
+  max-width:1280px;margin:0 auto;
+}
+main{padding:clamp(16px,4vw,40px);min-width:0}
+aside{
+  padding:clamp(16px,3vw,32px);
+  border-left:1px solid var(--rule);
+  align-self:start;position:sticky;top:0;
+}
+@media (max-width:860px){
+  .wrap{grid-template-columns:1fr}
+  aside{border-left:0;border-top:1px solid var(--rule);position:static}
+}
+
+/* ---------- À l'antenne ---------- */
+.air{display:flex;gap:20px;align-items:flex-start;min-height:190px}
+.lamp{
+  flex:none;width:22px;height:22px;border-radius:50%;
+  background:var(--lamp-off);margin-top:.9rem;
+  transition:background .2s, box-shadow .2s;
+}
+.air.on .lamp{background:var(--lamp);box-shadow:0 0 0 6px color-mix(in srgb,var(--lamp) 22%,transparent),0 0 28px var(--lamp)}
+.air-src{font-weight:600;color:var(--blue);font-size:1rem;margin:0 0 4px}
+.air-title{
+  margin:0;
+  font-size:clamp(1.9rem,4.6vw,3.4rem);
+  font-weight:800;font-stretch:78%;
+  line-height:1.05;letter-spacing:-.015em;
+  text-wrap:balance;
+}
+.air-title.idle{color:var(--ink-soft);font-weight:600}
+.air-desc{margin:12px 0 0;color:var(--ink-soft);max-width:62ch}
+
+/* ---------- Journal des dépêches ---------- */
+.log-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  margin:28px 0 8px;padding-bottom:8px;border-bottom:2px solid var(--ink);
+}
+.log-head h2{margin:0;font-size:1.15rem;font-weight:700}
+.log-head span{color:var(--ink-soft);font-size:.9rem}
+.log{list-style:none;margin:0;padding:0}
+.row{
+  display:grid;grid-template-columns:82px minmax(0,1fr) 40px;gap:14px;
+  align-items:start;
+  padding:12px 8px 12px 10px;
+  border-bottom:1px solid var(--rule);
+  border-left:4px solid transparent;
+  transition:background .6s,border-color .6s;
+}
+.row.fresh{background:color-mix(in srgb,var(--blue) 10%,transparent);border-left-color:var(--blue)}
+.row.reading{background:color-mix(in srgb,var(--lamp) 10%,transparent);border-left-color:var(--lamp)}
+.when{font-size:.88rem;color:var(--ink-soft);padding-top:2px}
+.when b{display:block;color:var(--ink);font-weight:600}
+.row a{color:inherit;text-decoration:none;font-weight:600;font-size:1.08rem;line-height:1.3}
+.row a:hover{text-decoration:underline}
+.row .from{display:block;font-size:.85rem;color:var(--blue);font-weight:600;margin-bottom:2px}
+.play{
+  width:36px;height:36px;border-radius:50%;
+  border:1px solid var(--rule);background:var(--card);cursor:pointer;
+  display:grid;place-items:center;
+}
+.play:hover{border-color:var(--blue);color:var(--blue)}
+.row.unread .when b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue);margin-right:6px}
+.row.read a{font-weight:500;color:var(--ink-soft)}
+input[type=password],input[type=text]{width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--card)}
+.btn.wide{width:100%;flex:none;padding:12px 10px;font-weight:700;border-color:var(--blue);color:var(--blue)}
+.empty{padding:36px 10px;color:var(--ink-soft);max-width:52ch}
+
+/* ---------- Commandes ---------- */
+.panel h3{margin:22px 0 8px;font-size:1rem;font-weight:700}
+.panel h3:first-child{margin-top:0}
+.go{
+  width:100%;padding:14px 16px;border:0;border-radius:10px;cursor:pointer;
+  background:var(--blue);color:var(--blue-ink);
+  font-weight:700;font-size:1.05rem;
+}
+.go.stop{background:var(--ink);color:var(--paper)}
+.btns{display:flex;gap:8px;margin-top:8px}
+.btn{
+  flex:1;padding:9px 10px;border:1px solid var(--rule);border-radius:8px;
+  background:var(--card);cursor:pointer;font-size:.92rem;
+}
+.btn:hover{border-color:var(--blue)}
+.field{display:block;margin:12px 0}
+.field span{display:flex;justify-content:space-between;font-size:.9rem;color:var(--ink-soft);margin-bottom:4px}
+select{
+  width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--card);
+}
+input[type=range]{width:100%;accent-color:var(--blue)}
+.check{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:.95rem;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--blue)}
+.src{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:.95rem}
+.src label{flex:1;display:flex;align-items:center;gap:10px;cursor:pointer}
+.src input{width:18px;height:18px;accent-color:var(--blue)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--rule);flex:none}
+.dot.ok{background:var(--ok)}
+.dot.bad{background:var(--bad)}
+.note{font-size:.85rem;color:var(--ink-soft);margin-top:18px}
+.warn{font-size:.88rem;color:var(--bad);margin:6px 0 0}
+.warn[hidden]{display:none}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Squawk</div>
+  <div class="status" id="status" role="status">À l'arrêt</div>
+  <div class="clock" id="clock">--:--:--</div>
+</header>
+
+<div class="wrap">
+  <main>
+    <section class="air" id="air" aria-label="Lecture en cours">
+      <div class="lamp" aria-hidden="true"></div>
+      <div>
+        <p class="air-src" id="airSrc">&nbsp;</p>
+        <h1 class="air-title idle" id="airTitle">Activez le squawk pour entendre les dépêches dès qu'elles tombent.</h1>
+        <p class="air-desc" id="airDesc"></p>
+      </div>
+    </section>
+
+    <div class="log-head">
+      <h2>Journal des dépêches</h2>
+      <span id="count">0 dépêche</span>
+    </div>
+    <ul class="log" id="log"></ul>
+    <p class="empty" id="empty">Le journal se remplit dès le premier scan. Les dépêches que vous n'avez pas encore écoutées portent un point bleu : « Lire les non lues » les lit à voix haute, et le bouton ▶ de chaque ligne permet d'en réécouter une.</p>
+  </main>
+
+  <aside class="panel">
+    <h3>Antenne</h3>
+    <button class="go" id="go">Activer le squawk</button>
+    <div class="btns">
+      <button class="btn" id="skip">Passer</button>
+      <button class="btn" id="test">Tester la voix</button>
+    </div>
+
+    <h3>Non lues</h3>
+    <button class="btn wide" id="readUnread">Lire les non lues</button>
+    <label class="field"><span>Combien</span>
+      <select id="unreadMax">
+        <option value="5">Les 5 plus récentes</option>
+        <option value="10" selected>Les 10 plus récentes</option>
+        <option value="25">Les 25 plus récentes</option>
+        <option value="0">Toutes</option>
+      </select>
+    </label>
+    <label class="field"><span>Ordre de lecture</span>
+      <select id="unreadOrder">
+        <option value="old" selected>Plus anciennes d'abord</option>
+        <option value="new">Plus récentes d'abord</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="unreadOnStart" checked> Les lire au démarrage du squawk</label>
+    <div class="btns"><button class="btn" id="markAll">Tout marquer comme lu</button></div>
+
+    <h3>Fréquence de scan</h3>
+    <select id="every" aria-label="Fréquence de scan">
+      <option value="5">Toutes les 5 secondes</option>
+      <option value="10">Toutes les 10 secondes</option>
+      <option value="30" selected>Toutes les 30 secondes</option>
+      <option value="60">Toutes les minutes</option>
+      <option value="180">Toutes les 3 minutes</option>
+    </select>
+
+    <h3>Voix</h3>
+    <label class="field"><span>Moteur de voix</span>
+      <select id="engine">
+        <option value="browser">Voix du navigateur (gratuit)</option>
+        <option value="eleven">ElevenLabs (la plus humaine)</option>
+        <option value="openai">OpenAI (très naturelle)</option>
+        <option value="google">Google Chirp 3 HD (très naturelle)</option>
+      </select>
+    </label>
+    <div id="cloud" hidden>
+      <label class="field"><span>Clé API</span>
+        <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="Collez votre clé ici">
+      </label>
+      <label class="field"><span>Voix neuronale</span>
+        <select id="cloudVoice"></select>
+      </label>
+      <label class="field" id="elevenModelBox" hidden><span>Qualité ElevenLabs</span>
+        <select id="elevenModel">
+          <option value="eleven_multilingual_v2">Naturelle (environ 100 titres gratuits par mois)</option>
+          <option value="eleven_flash_v2_5">Économique (environ 200 titres gratuits par mois)</option>
+        </select>
+      </label>
+      <button class="btn wide" id="cloudTest">Enregistrer et tester</button>
+      <p class="warn" id="cloudErr" hidden></p>
+      <p class="note" id="cloudNote"></p>
+    </div>
+    <label class="field" id="browserVoiceBox"><span>Voix du navigateur</span>
+      <select id="voice"></select>
+    </label>
+    <p class="warn" id="noFr" hidden>Aucune voix française trouvée sur cet appareil. Essayez Edge ou Chrome, qui proposent des voix de meilleure qualité.</p>
+    <label class="field"><span>Vitesse <output id="rateOut">1,0×</output></span>
+      <input type="range" id="rate" min="0.7" max="1.6" step="0.05" value="1.05">
+    </label>
+    <label class="field"><span>Volume <output id="volOut">100 %</output></span>
+      <input type="range" id="vol" min="0" max="1" step="0.05" value="1">
+    </label>
+    <label class="check"><input type="checkbox" id="beep" checked> Bip avant chaque dépêche</label>
+    <label class="check"><input type="checkbox" id="summary"> Lire aussi le résumé</label>
+
+    <h3>Sources</h3>
+    <div id="sources"></div>
+
+    <p class="note">Les flux RSS passent par des relais publics gratuits (CORS). Une source publie souvent toutes les quelques minutes : scanner plus vite ne fait qu'attraper la dépêche plus tôt.</p>
+  </aside>
+</div>
+
+<script>
+/* ============ Sources ============ */
+const SOURCES = [
+  {id:'franceinfo', name:'Franceinfo',  url:'https://www.francetvinfo.fr/titres.rss',                     lang:'fr-FR', on:true},
+  {id:'lemonde',    name:'Le Monde',    url:'https://www.lemonde.fr/rss/une.xml',                          lang:'fr-FR', on:true},
+  {id:'france24',   name:'France 24',   url:'https://www.france24.com/fr/rss',                             lang:'fr-FR', on:true},
+  {id:'figaro',     name:'Le Figaro',   url:'https://www.lefigaro.fr/rss/figaro_actualites-a-la-une.xml',  lang:'fr-FR', on:false},
+  {id:'20min',      name:'20 Minutes',  url:'https://www.20minutes.fr/feeds/rss-une.xml',                  lang:'fr-FR', on:false},
+  {id:'bbc',        name:'BBC World (en anglais)', short:'BBC World', url:'https://feeds.bbci.co.uk/news/world/rss.xml', lang:'en-GB', on:false}
+];
+
+/* Relais CORS essayés dans l'ordre (le dernier qui marche est réutilisé en premier) */
+const PROXIES = [
+  u => ({url:`https://api.allorigins.win/raw?disableCache=true&url=${encodeURIComponent(u)}`, type:'xml'}),
+  u => ({url:`https://corsproxy.io/?url=${encodeURIComponent(u)}`, type:'xml'}),
+  u => ({url:`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(u)}`, type:'json'})
+];
+
+/* ============ État ============ */
+const $ = s => document.querySelector(s);
+const LS_KEY = 'squawk.read.v1';
+function loadRead(){
+  try { return new Map(Object.entries(JSON.parse(localStorage.getItem(LS_KEY) || '{}'))); }
+  catch(e){ return new Map(); }
+}
+function saveRead(){
+  try {
+    const arr = [...state.read.entries()].sort((a,b) => b[1]-a[1]).slice(0, 1500);
+    localStorage.setItem(LS_KEY, JSON.stringify(Object.fromEntries(arr)));
+  } catch(e){}
+}
+const state = { running:false, polling:null, speaking:false, current:null, items:[], seen:new Set(), read:loadRead(), queue:[], timer:null, nextAt:0 };
+const isRead = it => state.read.has(it.key);
+function markRead(it){
+  if (!it || it.sys) return;
+  state.read.set(it.key, Date.now());
+  saveRead(); renderLog();
+}
+const MAX_QUEUE = 8, MAX_ITEMS = 80;
+
+/* ============ Utilitaires ============ */
+const pad = n => String(n).padStart(2,'0');
+const hhmm = ts => { const d=new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+function ago(ts){
+  const s = Math.max(0, Math.round((Date.now()-ts)/1000));
+  if (s < 60) return `il y a ${s} s`;
+  if (s < 3600) return `il y a ${Math.floor(s/60)} min`;
+  if (s < 86400) return `il y a ${Math.floor(s/3600)} h`;
+  return `il y a ${Math.floor(s/86400)} j`;
+}
+function clean(html, max){
+  const t = new DOMParser().parseFromString(html||'', 'text/html').body.textContent.replace(/\s+/g,' ').trim();
+  return max && t.length>max ? t.slice(0,max).replace(/\s+\S*$/,'') + '…' : t;
+}
+function srcLabel(s){ return s.short || s.name; }
+
+/* ============ Récupération des flux ============ */
+async function timedFetch(url, opts = {}, ms = 9000){
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, {cache:'no-store', ...opts, signal:c.signal});
+    if (!r.ok && !opts.method && !opts.headers) throw new Error('HTTP '+r.status);
+    return r;
+  } finally { clearTimeout(t); }
+}
+
+function parseXML(text, src){
+  const doc = new DOMParser().parseFromString(text, 'text/xml');
+  if (doc.querySelector('parsererror')) throw new Error('XML invalide');
+  const nodes = [...doc.querySelectorAll('item, entry')].slice(0, 25);
+  if (!nodes.length) throw new Error('Aucun article');
+  return nodes.map(n => {
+    const g = t => { const e = n.querySelector(t); return e ? e.textContent.trim() : ''; };
+    let link = g('link');
+    if (!link) { const l = n.querySelector('link'); link = l ? (l.getAttribute('href')||'') : ''; }
+    const title = clean(g('title'));
+    const key = src.id + '|' + (g('guid') || g('id') || link || title);
+    const dateStr = g('pubDate') || g('published') || g('updated');
+    const t = Date.parse(dateStr);
+    return {
+      key, src, title, link,
+      desc: clean(g('description') || g('summary') || g('content'), 240),
+      ts: isNaN(t) ? Date.now() : t
+    };
+  }).filter(i => i.title);
+}
+
+function parseJSON(data, src){
+  if (!data || data.status !== 'ok' || !Array.isArray(data.items)) throw new Error('JSON invalide');
+  return data.items.slice(0,25).map(i => {
+    const title = clean(i.title);
+    const t = Date.parse((i.pubDate||'').replace(' ','T') + (i.pubDate && !/Z|[+-]\d\d:?\d\d$/.test(i.pubDate) ? 'Z' : ''));
+    return {
+      key: src.id + '|' + (i.guid || i.link || title),
+      src, title, link: i.link || '',
+      desc: clean(i.description, 240),
+      ts: isNaN(t) ? Date.now() : t
+    };
+  }).filter(i => i.title);
+}
+
+async function fetchFeed(src){
+  const order = PROXIES.map((_,i)=>i);
+  if (src.proxy != null) { order.splice(order.indexOf(src.proxy),1); order.unshift(src.proxy); }
+  let lastErr;
+  for (const i of order){
+    try {
+      const p = PROXIES[i](src.url);
+      const r = await timedFetch(p.url);
+      const items = p.type === 'json' ? parseJSON(await r.json(), src) : parseXML(await r.text(), src);
+      src.proxy = i;
+      return items;
+    } catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('Échec');
+}
+
+/* ============ Scan ============ */
+function poll(){
+  if (state.polling) return state.polling;
+  state.polling = doPoll().finally(() => { state.polling = null; renderStatus(); });
+  return state.polling;
+}
+async function doPoll(){
+  const active = SOURCES.filter(s => s.on);
+  const res = await Promise.allSettled(active.map(fetchFeed));
+  const fresh = [];
+  res.forEach((r, i) => {
+    const s = active[i];
+    if (r.status === 'fulfilled'){
+      s.ok = true;
+      for (const it of r.value){
+        if (state.seen.has(it.key)) continue;
+        state.seen.add(it.key);
+        state.items.push(it);
+        if (s.primed) { it.fresh = true; fresh.push(it); }
+      }
+      s.primed = true;           // 1er passage = état de référence, non lu
+    } else s.ok = false;
+  });
+  fresh.sort((a,b) => a.ts - b.ts);
+  if (state.running){
+    for (const it of fresh){ it.live = true; state.queue.push(it); }
+    let n = state.queue.filter(i => i.live).length;
+    while (n > MAX_QUEUE){ state.queue.splice(state.queue.findIndex(i => i.live), 1); n--; }
+  }
+  state.items.sort((a,b) => b.ts - a.ts);
+  state.items = state.items.slice(0, MAX_ITEMS);
+  renderSources(); renderLog();
+  setTimeout(() => { fresh.forEach(i => i.fresh=false); renderLog(); }, 25000);
+  pump();
+}
+
+/* ============ Voix ============ */
+const synth = window.speechSynthesis;
+function loadVoices(){
+  if (!synth) return;
+  const all = synth.getVoices();
+  const fr = all.filter(v => v.lang.toLowerCase().startsWith('fr'));
+  const score = v => {                       // repère les voix les plus naturelles
+    const n = v.name.toLowerCase(); let sc = 0;
+    if (/natural/.test(n)) sc += 6;
+    if (/neural|premium|enhanced|am[ée]lior/.test(n)) sc += 4;
+    if (/online/.test(n)) sc += 1;
+    if (/google/.test(n)) sc += 1;
+    if (v.lang.toLowerCase().replace('_','-') === 'fr-fr') sc += 1;
+    return sc;
+  };
+  const list = [...(fr.length ? fr : all)].sort((a,b) => score(b) - score(a));
+  const sel = $('#voice'), prev = sel.value;
+  sel.innerHTML = '';
+  list.forEach(v => sel.add(new Option(`${score(v) >= 4 ? '★ ' : ''}${v.name} (${v.lang})`, v.name)));
+  if (prev) sel.value = prev;
+  $('#noFr').hidden = fr.length > 0 || all.length === 0;
+}
+function pickVoice(lang){
+  const all = synth.getVoices();
+  const base = lang.slice(0,2).toLowerCase();
+  if (base === 'fr'){ const v = all.find(v => v.name === $('#voice').value); if (v) return v; }
+  return all.find(v => v.lang.toLowerCase().replace('_','-').startsWith(base)) || null;
+}
+
+let ac;
+function beep(){
+  if (!$('#beep').checked) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), v = +$('#vol').value;
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(Math.max(.0002, .18*v), ac.currentTime + .02);
+    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + .18);
+    o.connect(g).connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + .2);
+  } catch(e){}
+}
+
+function showNow(it){
+  const air = $('#air'), t = $('#airTitle');
+  air.classList.toggle('on', !!it);
+  if (it){
+    $('#airSrc').textContent = srcLabel(it.src);
+    t.textContent = it.title; t.classList.remove('idle');
+    $('#airDesc').textContent = it.desc || '';
+  } else {
+    $('#airSrc').innerHTML = '&nbsp;';
+    t.classList.add('idle');
+    t.textContent = state.running ? "À l'écoute. La prochaine dépêche sera lue dès sa publication." : "Activez le squawk pour entendre les dépêches dès qu'elles tombent.";
+    $('#airDesc').textContent = '';
+  }
+  document.querySelectorAll('.row').forEach(r => r.classList.toggle('reading', !!it && r.dataset.key === it.key));
+}
+
+function speechText(it){
+  let text = it.sys ? it.title : `${srcLabel(it.src)}. ${it.title}.`;
+  if (!it.sys && $('#summary').checked && it.desc) text += ' ' + it.desc;
+  return text;
+}
+
+function pump(){
+  if (!synth || state.speaking || !state.queue.length) return;
+  const it = state.queue.shift();
+  state.speaking = true;
+  state.current = it;
+  showNow(it);
+  beep();
+  const nx = state.queue[0];                                   // pré-charge la suivante
+  if (nx && cloudCapable(nx)) getAudio(speechText(nx), nx.src.lang).catch(() => {});
+  setTimeout(() => say(it), $('#beep').checked ? 230 : 0);
+}
+
+function cancelSpeech(){
+  if (state.abort) state.abort();
+  synth && synth.cancel();
+}
+
+function say(it){
+  const text = speechText(it);
+  let done = false, wd;
+  const fin = () => {
+    if (done) return; done = true; clearTimeout(wd);
+    state.abort = null;
+    state.speaking = false; state.current = null; showNow(null); pump();
+  };
+  const ok = () => { markRead(it); fin(); };
+  wd = setTimeout(() => { cancelSpeech(); fin(); }, 90000);      // filet de sécurité
+  const isDone = () => done;
+  if (cloudCapable(it)) sayCloud(it, text, ok, fin, isDone);
+  else sayBrowser(it, text, ok, fin);
+}
+
+function sayBrowser(it, text, ok, fin){
+  if (!synth){ fin(); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = it.src.lang;
+  const v = pickVoice(it.src.lang); if (v) u.voice = v;
+  u.rate = +$('#rate').value;
+  u.volume = +$('#vol').value;
+  u.onend = ok;
+  u.onerror = fin;
+  synth.speak(u);
+}
+
+async function sayCloud(it, text, ok, fin, isDone){
+  let aborted = false;
+  state.abort = () => { aborted = true; player.pause(); fin(); };
+  try {
+    const url = await getAudio(text, it.src.lang);
+    if (aborted || isDone()) return;
+    showCloudError('');
+    player.onended = () => { player.onended = player.onerror = null; ok(); };
+    player.onerror = () => { player.onended = player.onerror = null; if (!aborted && !isDone()) { state.abort = null; sayBrowser(it, text, ok, fin); } };
+    player.defaultPlaybackRate = +$('#rate').value;
+    player.src = url;
+    player.volume = +$('#vol').value;
+    await player.play();
+  } catch(e){
+    if (aborted || isDone()) return;
+    showCloudError((e && e.message ? e.message : 'Erreur') + ' – voix du navigateur utilisée à la place.');
+    state.abort = null;
+    sayBrowser(it, text, ok, fin);
+  }
+}
+
+function playNow(it){           // relecture manuelle d'une ligne
+  if (!synth) return;
+  unlockAudio();
+  state.queue.unshift(it);
+  if (state.speaking) cancelSpeech(); else pump();
+}
+
+/* ============ Voix neuronales (API à clé personnelle) ============ */
+const TTS_KEY = 'squawk.tts.v1';
+const OPENAI_MODEL = 'gpt-4o-mini-tts';
+const OPENAI_VOICES = ['marin','cedar','coral','nova','shimmer','sage','alloy','ash','ballad','echo','fable','onyx','verse'];
+const GOOGLE_VOICES = ['Aoede','Leda','Kore','Zephyr','Puck','Charon','Fenrir','Orus'];
+const NOTES = {
+  eleven: "Clé à créer sur elevenlabs.io (Paramètres, Clés API). La voix la plus humaine, mais le forfait gratuit est limité à quelques milliers de caractères par mois : décochez « Lire aussi le résumé » pour économiser.",
+  openai: "Clé à créer sur platform.openai.com. Facturation à l'usage : comptez quelques centimes pour une centaine de titres (vérifiez les tarifs en vigueur). Les voix marin et cedar sont les plus naturelles.",
+  google: "Clé à créer dans Google Cloud (activer « Cloud Text-to-Speech API »). La facturation doit être activée, mais le premier million de caractères Chirp 3 HD est gratuit chaque mois. Réservé aux sources en français."
+};
+const voiceLists = {
+  openai: OPENAI_VOICES.map(v => ({v, label: v[0].toUpperCase()+v.slice(1)})),
+  google: GOOGLE_VOICES.map(n => ({v:'fr-FR-Chirp3-HD-'+n, label:n})),
+  eleven: []
+};
+function loadTts(){
+  try { const o = JSON.parse(localStorage.getItem(TTS_KEY) || '{}'); return {engine:o.engine||'eleven', keys:o.keys||{}, voices:o.voices||{}, model:o.model||'eleven_multilingual_v2'}; }
+  catch(e){ return {engine:'eleven', keys:{}, voices:{}, model:'eleven_multilingual_v2'}; }
+}
+function saveTts(){ try { localStorage.setItem(TTS_KEY, JSON.stringify(tts)); } catch(e){} }
+const tts = loadTts();
+
+/* Lecteur audio unique, « déverrouillé » par un clic (exigé par Safari/iOS) */
+const player = new Audio();
+player.preload = 'auto';
+const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+function unlockAudio(){ try { player.src = SILENT; const p = player.play(); if (p) p.catch(() => {}); } catch(e){} }
+
+function cloudCapable(it){
+  const e = tts.engine;
+  if (e === 'browser' || !tts.keys[e] || !tts.voices[e]) return false;
+  return e !== 'google' || it.src.lang.toLowerCase().startsWith('fr');
+}
+
+async function httpError(r, name){
+  let msg = '';
+  try {
+    const j = JSON.parse(await r.text());
+    msg = (j.error && (j.error.message || j.error)) || (j.detail && (j.detail.message || j.detail)) || '';
+    if (typeof msg !== 'string') msg = JSON.stringify(msg);
+  } catch(e){}
+  if (r.status === 401) return new Error(`${name} : clé refusée`);
+  return new Error(`${name} ${r.status}${msg ? ' – ' + msg.slice(0,140) : ''}`);
+}
+
+async function synthCloud(text, lang){
+  const e = tts.engine, key = tts.keys[e], voice = tts.voices[e];
+  const fr = lang.toLowerCase().startsWith('fr');
+  let r;
+  if (e === 'openai'){
+    r = await timedFetch('https://api.openai.com/v1/audio/speech', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+key, 'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: OPENAI_MODEL, voice, input: text, response_format:'mp3',
+        instructions: fr ? "Parle en français avec la voix posée, naturelle et neutre d'un journaliste de radio. Débit régulier, sans emphase."
+                         : "Speak with the calm, natural, neutral voice of a radio news anchor."
+      })
+    }, 20000);
+    if (!r.ok) throw await httpError(r, 'OpenAI');
+    return await r.blob();
+  }
+  if (e === 'eleven'){
+    r = await timedFetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
+      method:'POST',
+      headers:{'xi-api-key':key, 'Content-Type':'application/json'},
+      body: JSON.stringify({text, model_id: tts.model})
+    }, 20000);
+    if (!r.ok) throw await httpError(r, 'ElevenLabs');
+    return await r.blob();
+  }
+  if (e === 'google'){
+    r = await timedFetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({input:{text}, voice:{languageCode:'fr-FR', name:voice}, audioConfig:{audioEncoding:'MP3'}})
+    }, 20000);
+    if (!r.ok) throw await httpError(r, 'Google');
+    const j = await r.json();
+    const bin = atob(j.audioContent), buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return new Blob([buf], {type:'audio/mpeg'});
+  }
+  throw new Error('Moteur inconnu');
+}
+
+const audioCache = new Map();
+function getAudio(text, lang){
+  const k = `${tts.engine}|${tts.voices[tts.engine]}|${tts.model}|${text}`;
+  if (audioCache.has(k)) return audioCache.get(k);
+  const pr = synthCloud(text, lang).then(b => URL.createObjectURL(b));
+  audioCache.set(k, pr);
+  pr.catch(() => audioCache.delete(k));
+  if (audioCache.size > 40){ const first = audioCache.keys().next().value; audioCache.delete(first); }
+  return pr;
+}
+
+function showCloudError(msg){
+  const el = $('#cloudErr');
+  el.textContent = msg; el.hidden = !msg;
+}
+
+function fillCloudVoices(){
+  const e = tts.engine, sel = $('#cloudVoice');
+  sel.innerHTML = '';
+  const list = voiceLists[e] || [];
+  if (!list.length) sel.add(new Option('Enregistrez la clé pour charger les voix', ''));
+  list.forEach(o => sel.add(new Option(o.label, o.v)));
+  if (tts.voices[e] && list.some(o => o.v === tts.voices[e])) sel.value = tts.voices[e];
+  tts.voices[e] = sel.value || '';
+}
+
+function syncCloudUI(){
+  const e = tts.engine, cloud = e !== 'browser';
+  $('#engine').value = e;
+  $('#cloud').hidden = !cloud;
+  $('#elevenModelBox').hidden = e !== 'eleven';
+  $('#elevenModel').value = tts.model;
+  $('#browserVoiceBox').hidden = cloud;
+  showCloudError('');
+  if (cloud){
+    $('#apiKey').value = tts.keys[e] || '';
+    $('#cloudNote').textContent = NOTES[e];
+    fillCloudVoices();
+  }
+}
+
+async function refreshCloudVoices(){
+  const e = tts.engine, key = tts.keys[e];
+  if (!key) return;
+  try {
+    if (e === 'eleven'){
+      const r = await timedFetch('https://api.elevenlabs.io/v1/voices', {headers:{'xi-api-key':key}}, 15000);
+      if (!r.ok) throw await httpError(r, 'ElevenLabs');
+      const j = await r.json();
+      voiceLists.eleven = (j.voices || []).map(v => ({v:v.voice_id, label:v.name + (v.labels && v.labels.gender ? ` (${v.labels.gender === 'female' ? 'femme' : v.labels.gender === 'male' ? 'homme' : v.labels.gender})` : '')}));
+    } else if (e === 'google'){
+      const r = await timedFetch(`https://texttospeech.googleapis.com/v1/voices?languageCode=fr-FR&key=${encodeURIComponent(key)}`, {method:'GET'}, 15000);
+      if (!r.ok) throw await httpError(r, 'Google');
+      const j = await r.json();
+      const l = (j.voices || []).filter(v => v.name.includes('Chirp3-HD')).map(v => ({v:v.name, label:v.name.split('Chirp3-HD-')[1] + (v.ssmlGender ? ` (${v.ssmlGender === 'FEMALE' ? 'femme' : 'homme'})` : '')}));
+      if (l.length) voiceLists.google = l;
+    }
+  } catch(err){ showCloudError(err.message); throw err; }
+  fillCloudVoices();
+}
+
+function runTest(){
+  if (!synth) return;
+  unlockAudio();
+  state.queue.unshift({sys:true, key:'sys', title:"Bonjour, ceci est la voix du squawk.", desc:'', src:{name:'Système', lang:'fr-FR'}});
+  if (state.speaking) cancelSpeech(); else pump();
+}
+
+/* ============ Non lues ============ */
+function announce(text){
+  state.queue.push({sys:true, key:'sys', title:text, desc:'', src:{name:'Système', lang:'fr-FR'}});
+}
+function queueUnread(){
+  if (!synth) return;
+  let list = state.items.filter(it => !isRead(it) && it !== state.current && !state.queue.includes(it));
+  const max = +$('#unreadMax').value;
+  if (max) list = list.slice(0, max);              // les plus récentes
+  if ($('#unreadOrder').value === 'old') list.reverse();
+  if (!list.length){
+    if (!state.queue.length && !state.speaking){ announce('Aucune dépêche non lue.'); pump(); }
+    return;
+  }
+  announce(`${list.length} dépêche${list.length>1?'s':''} non lue${list.length>1?'s':''}.`);
+  list.forEach(it => state.queue.push(it));
+  pump();
+}
+
+/* ============ Démarrage / arrêt ============ */
+function start(){
+  if (!synth){ alert("Ce navigateur ne gère pas la synthèse vocale."); return; }
+  state.running = true;
+  unlockAudio();
+  cancelSpeech();
+  state.queue.length = 0;
+  state.queue.push({sys:true, key:'sys', title:'Squawk activé.', desc:'', src:{name:'Système', lang:'fr-FR'}});
+  pump();
+  $('#go').textContent = 'Arrêter le squawk';
+  $('#go').classList.add('stop');
+  schedule(true);
+  if ($('#unreadOnStart').checked) poll().then(() => { if (state.running) queueUnread(); });
+}
+function stop(){
+  state.running = false;
+  clearInterval(state.timer); state.timer = null;
+  state.queue.length = 0;
+  cancelSpeech();
+  state.speaking = false;
+  $('#go').textContent = 'Activer le squawk';
+  $('#go').classList.remove('stop');
+  showNow(null); renderStatus();
+}
+function schedule(immediate){
+  clearInterval(state.timer);
+  const ms = +$('#every').value * 1000;
+  state.nextAt = Date.now() + ms;
+  state.timer = setInterval(() => { state.nextAt = Date.now() + ms; poll(); }, ms);
+  if (immediate) poll();
+}
+
+/* ============ Rendu ============ */
+function renderSources(){
+  const box = $('#sources');
+  box.innerHTML = '';
+  SOURCES.forEach(s => {
+    const row = document.createElement('div'); row.className = 'src';
+    const lab = document.createElement('label');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = s.on;
+    cb.onchange = () => { s.on = cb.checked; if (s.on) s.primed = false; renderStatus(); if (state.running && s.on) poll(); };
+    lab.append(cb, document.createTextNode(s.name));
+    const dot = document.createElement('span');
+    dot.className = 'dot' + (!s.on || s.ok == null ? '' : s.ok ? ' ok' : ' bad');
+    dot.title = !s.on ? 'Désactivée' : s.ok == null ? 'Pas encore scannée' : s.ok ? 'Source joignable' : 'Source injoignable';
+    row.append(lab, dot);
+    box.append(row);
+  });
+}
+
+function renderLog(){
+  const ul = $('#log'); ul.innerHTML = '';
+  $('#empty').hidden = state.items.length > 0;
+  const unread = state.items.filter(i => !isRead(i)).length;
+  $('#count').textContent = `${unread} non lue${unread>1?'s':''} sur ${state.items.length}`;
+  $('#readUnread').textContent = unread ? `Lire les non lues (${unread})` : 'Lire les non lues';
+  for (const it of state.items){
+    const li = document.createElement('li');
+    li.className = 'row ' + (isRead(it) ? 'read' : 'unread') + (it.fresh ? ' fresh' : '')
+                 + (state.current && state.current.key === it.key ? ' reading' : '');
+    li.dataset.key = it.key;
+
+    const when = document.createElement('div'); when.className = 'when';
+    const b = document.createElement('b'); b.textContent = hhmm(it.ts);
+    const t = document.createElement('span'); t.dataset.ts = it.ts; t.textContent = ago(it.ts);
+    when.append(b, t);
+
+    const mid = document.createElement('div');
+    const from = document.createElement('span'); from.className = 'from'; from.textContent = srcLabel(it.src);
+    const a = document.createElement('a'); a.textContent = it.title;
+    if (it.link) { a.href = it.link; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.onclick = () => setTimeout(() => markRead(it), 0); }
+    mid.append(from, a);
+
+    const btn = document.createElement('button'); btn.className = 'play';
+    btn.setAttribute('aria-label', 'Lire cette dépêche à voix haute');
+    btn.textContent = '▶'; btn.onclick = () => playNow(it);
+
+    li.append(when, mid, btn);
+    ul.append(li);
+  }
+}
+
+function renderStatus(){
+  const el = $('#status');
+  if (state.polling){ el.textContent = 'Scan en cours…'; return; }
+  if (!state.running){ el.textContent = "À l'arrêt"; return; }
+  const on = SOURCES.filter(s => s.on);
+  const ok = on.filter(s => s.ok).length;
+  const left = Math.max(0, Math.ceil((state.nextAt - Date.now())/1000));
+  el.textContent = state.polling
+    ? 'Scan en cours…'
+    : `En écoute – prochain scan dans ${left} s – ${ok}/${on.length} sources joignables`;
+}
+
+/* ============ Horloge (1 s) ============ */
+setInterval(() => {
+  const d = new Date();
+  $('#clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  document.querySelectorAll('[data-ts]').forEach(e => e.textContent = ago(+e.dataset.ts));
+  renderStatus();
+}, 1000);
+
+/* ============ Événements ============ */
+$('#go').onclick = () => state.running ? stop() : start();
+$('#skip').onclick = () => { if (!synth) return; if (state.current) markRead(state.current); cancelSpeech(); };
+$('#readUnread').onclick = async () => {
+  if (!synth) { alert("Ce navigateur ne gère pas la synthèse vocale."); return; }
+  synth.speak(new SpeechSynthesisUtterance(''));   // déverrouille l'audio (geste utilisateur)
+  unlockAudio();
+  if (!state.running || !state.items.length) await poll();
+  queueUnread();
+};
+$('#markAll').onclick = () => {
+  const now = Date.now();
+  state.items.forEach(it => state.read.set(it.key, now));
+  state.queue.length = 0;
+  saveRead(); renderLog();
+};
+$('#test').onclick = runTest;
+$('#every').onchange = () => { if (state.running) schedule(false); };
+$('#rate').oninput = e => $('#rateOut').textContent = (+e.target.value).toFixed(2).replace('.',',').replace(/0$/,'') + '×';
+$('#vol').oninput  = e => $('#volOut').textContent = Math.round(e.target.value*100) + ' %';
+window.addEventListener('beforeunload', () => synth && synth.cancel());
+
+$('#engine').onchange = e => { tts.engine = e.target.value; saveTts(); syncCloudUI(); if (tts.keys[tts.engine]) refreshCloudVoices().catch(() => {}); };
+$('#elevenModel').onchange = e => { tts.model = e.target.value; saveTts(); };
+$('#cloudVoice').onchange = e => { tts.voices[tts.engine] = e.target.value; saveTts(); };
+$('#apiKey').onchange = e => { tts.keys[tts.engine] = e.target.value.trim(); saveTts(); };
+$('#cloudTest').onclick = async () => {
+  const eng = tts.engine;
+  tts.keys[eng] = $('#apiKey').value.trim();
+  if (!tts.keys[eng]){ showCloudError('Collez d\'abord votre clé API.'); return; }
+  showCloudError('');
+  unlockAudio();
+  try { await refreshCloudVoices(); } catch(err){ return; }
+  tts.voices[eng] = $('#cloudVoice').value;
+  saveTts();
+  runTest();
+};
+
+if (synth){ synth.onvoiceschanged = loadVoices; loadVoices(); }
+renderSources();
+syncCloudUI();
+if (tts.engine !== 'browser' && tts.keys[tts.engine]) refreshCloudVoices().catch(() => {});
+$('#rate').dispatchEvent(new Event('input'));
+poll();   // premier scan au chargement : remplit le journal et repère les non lues
+</script>
+</body>
+</html>
