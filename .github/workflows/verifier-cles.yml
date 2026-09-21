@@ -1,0 +1,24 @@
+name: Vérifier les clés ElevenLabs
+
+# Se lance à la main : onglet Actions > "Vérifier les clés ElevenLabs" > Run workflow
+on:
+  workflow_dispatch:
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Les clés viennent des Secrets GitHub (chiffrés), jamais d'un fichier du dépôt.
+      - name: Écrire cles.txt depuis le secret
+        env:
+          CLES: ${{ secrets.ELEVENLABS_KEYS }}
+        run: printf '%s\n' "$CLES" > cles.txt
+
+      - name: Vérifier les clés
+        run: python check_cles.py
