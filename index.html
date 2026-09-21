@@ -243,6 +243,16 @@ input[type=range]{width:100%;accent-color:var(--blue)}
       </select>
     </label>
     <div id="cloud" hidden>
+      <div id="vaultBox" hidden>
+        <div id="vaultForm">
+          <label class="field"><span>Mot de passe du coffre</span>
+            <input type="password" id="vaultPass" autocomplete="off" spellcheck="false" placeholder="Saisi une seule fois par appareil">
+          </label>
+          <button class="btn wide" id="vaultBtn">Déverrouiller la clé</button>
+        </div>
+        <button class="btn" id="vaultLock" hidden>Oublier la clé sur cet appareil</button>
+        <p class="note" id="vaultNote"></p>
+      </div>
       <label class="field"><span>Clé API</span>
         <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="Collez votre clé ici">
       </label>
@@ -572,6 +582,9 @@ function playNow(it){           // relecture manuelle d'une ligne
 }
 
 /* ============ Voix neuronales (API à clé personnelle) ============ */
+/* Clés intégrées par check_cles.py --integrer (laisser vide dans la version publique !) */
+const PRESET = { eleven: [] };
+const VAULT = null;
 const TTS_KEY = 'squawk.tts.v1';
 const OPENAI_MODEL = 'gpt-4o-mini-tts';
 const OPENAI_VOICES = ['marin','cedar','coral','nova','shimmer','sage','alloy','ash','ballad','echo','fable','onyx','verse'];
@@ -587,11 +600,13 @@ const voiceLists = {
   eleven: []
 };
 function loadTts(){
-  try { const o = JSON.parse(localStorage.getItem(TTS_KEY) || '{}'); return {engine:o.engine||'eleven', keys:o.keys||{}, voices:o.voices||{}, model:o.model||'eleven_multilingual_v2'}; }
-  catch(e){ return {engine:'eleven', keys:{}, voices:{}, model:'eleven_multilingual_v2'}; }
+  try { const o = JSON.parse(localStorage.getItem(TTS_KEY) || '{}'); return {engine:o.engine||'eleven', keys:o.keys||{}, voices:o.voices||{}, model:o.model||'eleven_multilingual_v2', spare:o.spare||[]}; }
+  catch(e){ return {engine:'eleven', keys:{}, voices:{}, model:'eleven_multilingual_v2', spare:[]}; }
 }
 function saveTts(){ try { localStorage.setItem(TTS_KEY, JSON.stringify(tts)); } catch(e){} }
 const tts = loadTts();
+if (!PRESET.eleven.length && tts.spare.length) PRESET.eleven = tts.spare;
+if (!tts.keys.eleven && PRESET.eleven.length) tts.keys.eleven = PRESET.eleven[0];
 
 /* Lecteur audio unique, « déverrouillé » par un clic (exigé par Safari/iOS) */
 const player = new Audio();
@@ -634,13 +649,19 @@ async function synthCloud(text, lang){
     return await r.blob();
   }
   if (e === 'eleven'){
-    r = await timedFetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
-      method:'POST',
-      headers:{'xi-api-key':key, 'Content-Type':'application/json'},
-      body: JSON.stringify({text, model_id: tts.model})
-    }, 20000);
-    if (!r.ok) throw await httpError(r, 'ElevenLabs');
-    return await r.blob();
+    const keys = [key, ...PRESET.eleven.filter(k => k !== key)];
+    let lastErr;
+    for (const k of keys){
+      r = await timedFetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
+        method:'POST',
+        headers:{'xi-api-key':k, 'Content-Type':'application/json'},
+        body: JSON.stringify({text, model_id: tts.model})
+      }, 20000);
+      if (r.ok){ tts.keys.eleven = k; return await r.blob(); }
+      lastErr = await httpError(r, 'ElevenLabs');
+      if (r.status !== 401) break;          // seule une clé refusée justifie d'essayer la suivante
+    }
+    throw lastErr;
   }
   if (e === 'google'){
     r = await timedFetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`, {
@@ -683,12 +704,33 @@ function fillCloudVoices(){
   tts.voices[e] = sel.value || '';
 }
 
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function openVault(pass){
+  const mat = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(VAULT.salt), iterations:VAULT.iter, hash:'SHA-256'},
+                                            mat, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(VAULT.iv)}, key, b64(VAULT.ct));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+function syncVaultUI(){
+  const show = !!VAULT && tts.engine === 'eleven';
+  $('#vaultBox').hidden = !show;
+  if (!show) return;
+  const open = !!tts.keys.eleven;
+  $('#vaultForm').hidden = open;
+  $('#vaultLock').hidden = !open;
+  $('#vaultNote').textContent = open
+    ? 'Clé enregistrée sur cet appareil.'
+    : 'Saisissez votre mot de passe une seule fois : la clé sera mémorisée sur cet appareil.';
+}
+
 function syncCloudUI(){
   const e = tts.engine, cloud = e !== 'browser';
   $('#engine').value = e;
   $('#cloud').hidden = !cloud;
   $('#elevenModelBox').hidden = e !== 'eleven';
   $('#elevenModel').value = tts.model;
+  syncVaultUI();
   $('#browserVoiceBox').hidden = cloud;
   showCloudError('');
   if (cloud){
@@ -703,9 +745,14 @@ async function refreshCloudVoices(){
   if (!key) return;
   try {
     if (e === 'eleven'){
-      const r = await timedFetch('https://api.elevenlabs.io/v1/voices', {headers:{'xi-api-key':key}}, 15000);
-      if (!r.ok) throw await httpError(r, 'ElevenLabs');
-      const j = await r.json();
+      let j, last;
+      for (const k of [key, ...PRESET.eleven.filter(x => x !== key)]){
+        const r = await timedFetch('https://api.elevenlabs.io/v1/voices', {headers:{'xi-api-key':k}}, 15000);
+        if (r.ok){ j = await r.json(); tts.keys.eleven = k; break; }
+        last = await httpError(r, 'ElevenLabs');
+        if (r.status !== 401) break;
+      }
+      if (!j) throw last;
       voiceLists.eleven = (j.voices || []).map(v => ({v:v.voice_id, label:v.name + (v.labels && v.labels.gender ? ` (${v.labels.gender === 'female' ? 'femme' : v.labels.gender === 'male' ? 'homme' : v.labels.gender})` : '')}));
     } else if (e === 'google'){
       const r = await timedFetch(`https://texttospeech.googleapis.com/v1/voices?languageCode=fr-FR&key=${encodeURIComponent(key)}`, {method:'GET'}, 15000);
@@ -869,6 +916,28 @@ $('#vol').oninput  = e => $('#volOut').textContent = Math.round(e.target.value*1
 window.addEventListener('beforeunload', () => synth && synth.cancel());
 
 $('#engine').onchange = e => { tts.engine = e.target.value; saveTts(); syncCloudUI(); if (tts.keys[tts.engine]) refreshCloudVoices().catch(() => {}); };
+$('#vaultBtn').onclick = async () => {
+  const pass = $('#vaultPass').value;
+  if (!pass) return;
+  showCloudError('');
+  try {
+    if (!(window.crypto && crypto.subtle)) throw new Error('Le déchiffrement exige une page en https.');
+    const keys = await openVault(pass);
+    if (!Array.isArray(keys) || !keys.length) throw new Error('Coffre vide.');
+    tts.keys.eleven = keys[0]; tts.spare = keys; PRESET.eleven = keys;
+    saveTts();
+    $('#vaultPass').value = '';
+    syncCloudUI();
+    refreshCloudVoices().catch(() => {});
+  } catch(err){
+    showCloudError(err && err.name === 'OperationError' ? 'Mot de passe incorrect.' : (err.message || 'Erreur'));
+  }
+};
+$('#vaultPass').onkeydown = e => { if (e.key === 'Enter') $('#vaultBtn').onclick(); };
+$('#vaultLock').onclick = () => {
+  tts.keys.eleven = ''; tts.spare = []; PRESET.eleven = [];
+  saveTts(); syncCloudUI();
+};
 $('#elevenModel').onchange = e => { tts.model = e.target.value; saveTts(); };
 $('#cloudVoice').onchange = e => { tts.voices[tts.engine] = e.target.value; saveTts(); };
 $('#apiKey').onchange = e => { tts.keys[tts.engine] = e.target.value.trim(); saveTts(); };
