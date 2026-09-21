@@ -442,7 +442,7 @@ function loadVoices(){
   const score = v => {                       // repère les voix les plus naturelles
     const n = v.name.toLowerCase(); let sc = 0;
     if (/natural/.test(n)) sc += 6;
-    if (/neural|premium|enhanced|am[ée]lior/.test(n)) sc += 4;
+    if (/siri|neural|premium|enhanced|am[ée]lior/.test(n)) sc += 4;
     if (/online/.test(n)) sc += 1;
     if (/google/.test(n)) sc += 1;
     if (v.lang.toLowerCase().replace('_','-') === 'fr-fr') sc += 1;
