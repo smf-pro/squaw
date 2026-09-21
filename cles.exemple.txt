@@ -1,0 +1,5 @@
+# Une clé ElevenLabs par ligne (toutes du MÊME compte).
+# Les lignes qui commencent par # sont ignorées.
+# Copiez ce fichier en "cles.txt" et remplacez les exemples par vos vraies clés.
+sk_exemple_1_remplacez_moi
+sk_exemple_2_remplacez_moi
